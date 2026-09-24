@@ -327,10 +327,12 @@ pub fn Report::to_text(self : Report) -> String {
     output += "\n"
   }
   for service in self.services {
-    output += "service=\{service.name} requests=\{service.count} errors=\{service.errors} error_rate_pct=\{service.error_rate_pct} p50_ms=\{service.p50_ms} p95_ms=\{service.p95_ms}\n"
+    let name = Json::string(service.name).stringify()
+    output += "service=\{name} requests=\{service.count} errors=\{service.errors} error_rate_pct=\{service.error_rate_pct} p50_ms=\{service.p50_ms} p95_ms=\{service.p95_ms}\n"
   }
   for group in self.statuses {
-    output += "service=\{group.service} status=\{group.status} requests=\{group.count} p50_ms=\{group.p50_ms} p95_ms=\{group.p95_ms}\n"
+    let name = Json::string(group.service).stringify()
+    output += "service=\{name} status=\{group.status} requests=\{group.count} p50_ms=\{group.p50_ms} p95_ms=\{group.p95_ms}\n"
   }
   output
 }

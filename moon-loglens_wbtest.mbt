@@ -97,6 +97,14 @@ test "empty analysis and JSON serialization remain valid" {
 }
 
 ///|
+test "text report quotes untrusted service names" {
+  let input = "{\"timestamp\":\"2026-09-24T03:00:00Z\",\"service\":\"api\\nblue\",\"level\":\"INFO\",\"status\":200,\"latency_ms\":1}"
+  let text = analyze(input).to_text()
+  assert_true(text.contains("service=\"api\\nblue\""))
+  assert_eq(text.split("\n").length(), 4)
+}
+
+///|
 test "invalid filters are rejected before analysis" {
   assert_true(Config::new(level="TRACE").validate() is Some(_))
   assert_true(Config::new(since="yesterday").validate() is Some(_))

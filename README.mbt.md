@@ -22,7 +22,7 @@ Sample text output starts with:
 ```text
 accepted=4 filtered=0 invalid=1 errors=1 error_rate_pct=25
 invalid_lines=5
-service=api requests=3 errors=1 error_rate_pct=33.333333333333336 p50_ms=20 p95_ms=150
+service="api" requests=3 errors=1 error_rate_pct=33.333333333333336 p50_ms=20 p95_ms=150
 ```
 
 The example deliberately contains one malformed line. A nonzero `invalid` count does not automatically fail the command; review `invalid_lines` and fix the source data as appropriate.
@@ -49,7 +49,7 @@ moon run cmd/main <input.jsonl> [--service NAME] [--level DEBUG|INFO|WARN|ERROR]
   [--format text|json] [--max-error-rate PERCENT]
 ```
 
-Time bounds are inclusive. Valid events excluded by filters increment `filtered`, not `invalid`. Counts, percentiles, and error rates use accepted events only. `errors` counts HTTP 5xx statuses; 4xx responses are not counted as server errors. `error_rate_pct = errors / accepted * 100`, with zero for an empty selection. The P50 and P95 calculations use the nearest-rank method on sorted latency values. Results are grouped by service and exact HTTP status; groups are sorted for stable output. JSON output contains the same data as text output.
+Time bounds are inclusive. Valid events excluded by filters increment `filtered`, not `invalid`. Counts, percentiles, and error rates use accepted events only. `errors` counts HTTP 5xx statuses; 4xx responses are not counted as server errors. `error_rate_pct = errors / accepted * 100`, with zero for an empty selection. The P50 and P95 calculations use the nearest-rank method on sorted latency values. Results are grouped by service and exact HTTP status; groups are sorted for stable output. Service names in text output are JSON-quoted so control characters cannot create false report lines. JSON output contains the same data as text output.
 
 `--max-error-rate` compares the overall percentage after filtering. Exit codes are 0 for a successful report (even with invalid input lines), 1 when the input file cannot be read, 2 for a CLI or filter error, and 3 when the error-rate threshold is exceeded. A threshold failure still writes the report to standard output, allowing CI to archive it.
 
