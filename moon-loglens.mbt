@@ -272,45 +272,46 @@ pub fn analyze(content : String, config? : Config = Config::new()) -> Report {
     }
   }
   let service_names : Array[String] = []
+  let service_indices : @hashmap.HashMap[String, Int] = HashMap([])
   let service_latencies : Array[Array[Double]] = []
   let service_errors : Array[Int] = []
   let group_services : Array[String] = []
   let group_statuses : Array[Int] = []
+  let group_indices : @hashmap.HashMap[String, Int] = HashMap([])
   let group_latencies : Array[Array[Double]] = []
   let all_latencies : Array[Double] = []
   let mut errors = 0
   for entry in entries {
     all_latencies.push(entry.latency_ms)
-    let mut service_index = -1
-    for i, name in service_names {
-      if name == entry.service {
-        service_index = i
-        break
+    let service_index = match service_indices.get(entry.service) {
+      Some(index) => index
+      None => {
+        let index = service_names.length()
+        service_indices.set(entry.service, index)
+        service_names.push(entry.service)
+        service_latencies.push([])
+        service_errors.push(0)
+        index
       }
-    }
-    if service_index == -1 {
-      service_index = service_names.length()
-      service_names.push(entry.service)
-      service_latencies.push([])
-      service_errors.push(0)
     }
     service_latencies[service_index].push(entry.latency_ms)
     if entry.status >= 500 {
       service_errors[service_index] += 1
       errors += 1
     }
-    let mut group_index = -1
-    for i, service in group_services {
-      if service == entry.service && group_statuses[i] == entry.status {
-        group_index = i
-        break
+    // The length prefix makes the composite key unambiguous even if a
+    // service name contains punctuation or digits used by the status code.
+    let group_key = "\{entry.service.length()}:\{entry.service}:\{entry.status}"
+    let group_index = match group_indices.get(group_key) {
+      Some(index) => index
+      None => {
+        let index = group_services.length()
+        group_indices.set(group_key, index)
+        group_services.push(entry.service)
+        group_statuses.push(entry.status)
+        group_latencies.push([])
+        index
       }
-    }
-    if group_index == -1 {
-      group_index = group_services.length()
-      group_services.push(entry.service)
-      group_statuses.push(entry.status)
-      group_latencies.push([])
     }
     group_latencies[group_index].push(entry.latency_ms)
   }

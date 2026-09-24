@@ -135,6 +135,27 @@ test "service and status aggregation uses nearest-rank p95 and stable order" {
 }
 
 ///|
+test "many service groups remain distinct with punctuation and repeated statuses" {
+  let mut input = ""
+  for i in 0..<100 {
+    let service = if i == 0 { "x:200" } else { "svc-\{i}" }
+    input += event("2026-09-24T03:00:00Z", service, "INFO", "200", "1") + "\n"
+    input += event("2026-09-24T03:00:01Z", service, "ERROR", "503", "9") + "\n"
+  }
+  let report = analyze(input)
+  assert_eq(report.accepted, 200)
+  assert_eq(report.errors, 100)
+  assert_eq(report.services.length(), 100)
+  assert_eq(report.statuses.length(), 200)
+  for service in report.services {
+    assert_eq(service.count, 2)
+    assert_eq(service.errors, 1)
+    assert_eq(service.error_rate_pct, 50.0)
+  }
+  assert_eq(report.statuses[report.statuses.length() - 1].service, "x:200")
+}
+
+///|
 test "empty analysis and JSON serialization remain valid" {
   let empty = analyze("\n  \n")
   assert_eq(empty.accepted, 0)
