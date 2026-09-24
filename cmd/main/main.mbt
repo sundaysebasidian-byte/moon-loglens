@@ -3,7 +3,7 @@ extern "C" fn exit(code : Int) = "exit"
 
 ///|
 fn usage() -> String {
-  "Usage: moon run cmd/main <input.jsonl> [--service NAME] [--level DEBUG|INFO|WARN|ERROR] [--since UTC] [--until UTC] [--format text|json] [--max-error-rate PERCENT] [--min-events COUNT] [--fail-on-invalid]\n"
+  "Usage: moon run cmd/main <input.jsonl> [--service NAME] [--level DEBUG|INFO|WARN|ERROR] [--status 100..599] [--since UTC] [--until UTC] [--format text|json] [--max-error-rate PERCENT] [--min-events COUNT] [--fail-on-invalid]\n"
 }
 
 ///|
@@ -29,6 +29,7 @@ async fn main {
   }
   let mut service = ""
   let mut level = ""
+  let mut status = 0
   let mut since = ""
   let mut until = ""
   let mut format = "text"
@@ -50,6 +51,16 @@ async fn main {
     match args[i] {
       "--service" => service = value
       "--level" => level = value
+      "--status" => {
+        let parsed = Some(@string.parse_int(value)) catch { _ => None }
+        match parsed {
+          Some(n) => status = n
+          None => {
+            bad_argument("--status must be an HTTP status from 100 through 599")
+            return
+          }
+        }
+      }
       "--since" => since = value
       "--until" => until = value
       "--format" => format = value
@@ -96,7 +107,7 @@ async fn main {
     bad_argument("--format must be text or json")
     return
   }
-  let config = @app.Config::new(service~, level~, since~, until~)
+  let config = @app.Config::new(service~, level~, status~, since~, until~)
   if config.validate() is Some(message) {
     bad_argument(message)
     return

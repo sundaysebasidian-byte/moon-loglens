@@ -63,6 +63,20 @@ test "inclusive UTC and level filters select only eligible valid events" {
 }
 
 ///|
+test "status filter selects one HTTP response code" {
+  let input = event("2026-09-24T03:00:00Z", "api", "INFO", "200", "12") +
+    "\n" +
+    event("2026-09-24T03:00:01Z", "api", "ERROR", "503", "150") +
+    "\n" +
+    event("2026-09-24T03:00:02Z", "worker", "ERROR", "503", "170")
+  let report = analyze(input, config=Config::new(status=503))
+  assert_eq(report.accepted, 2)
+  assert_eq(report.filtered, 1)
+  assert_eq(report.errors, 2)
+  assert_eq(report.statuses.length(), 2)
+}
+
+///|
 test "service and status aggregation uses nearest-rank p95 and stable order" {
   let mut input = ""
   for i in 1..<=20 {
@@ -107,6 +121,8 @@ test "text report quotes untrusted service names" {
 ///|
 test "invalid filters are rejected before analysis" {
   assert_true(Config::new(level="TRACE").validate() is Some(_))
+  assert_true(Config::new(status=99).validate() is Some(_))
+  assert_true(Config::new(status=600).validate() is Some(_))
   assert_true(Config::new(since="yesterday").validate() is Some(_))
   assert_true(
     Config::new(since="2026-09-25T00:00:00Z", until="2026-09-24T00:00:00Z").validate()

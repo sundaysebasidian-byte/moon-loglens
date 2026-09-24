@@ -12,10 +12,11 @@ pub fn valid_timestamp(String) -> Bool
 pub struct Config {
   service : String
   level : String
+  status : Int
   since : String
   until : String
 }
-pub fn Config::new(service? : String, level? : String, since? : String, until? : String) -> Self
+pub fn Config::new(service? : String, level? : String, status? : Int, since? : String, until? : String) -> Self
 pub fn Config::validate(Self) -> String?
 
 pub struct Report {

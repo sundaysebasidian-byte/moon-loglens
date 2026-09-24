@@ -2,6 +2,7 @@
 pub struct Config {
   service : String
   level : String
+  status : Int
   since : String
   until : String
 }
@@ -10,10 +11,11 @@ pub struct Config {
 pub fn Config::new(
   service? : String = "",
   level? : String = "",
+  status? : Int = 0,
   since? : String = "",
   until? : String = "",
 ) -> Config {
-  { service, level, since, until, }
+  { service, level, status, since, until, }
 }
 
 ///|
@@ -24,6 +26,9 @@ pub fn Config::validate(self : Config) -> String? {
     self.level != "WARN" &&
     self.level != "ERROR" {
     return Some("--level must be DEBUG, INFO, WARN, or ERROR")
+  }
+  if self.status != 0 && (self.status < 100 || self.status > 599) {
+    return Some("--status must be an HTTP status from 100 through 599")
   }
   if self.since != "" && !valid_timestamp(self.since) {
     return Some(
@@ -219,6 +224,7 @@ pub fn analyze(content : String, config? : Config = Config::new()) -> Report {
       Some(entry) =>
         if (config.service != "" && entry.service != config.service) ||
           (config.level != "" && entry.level != config.level) ||
+          (config.status != 0 && entry.status != config.status) ||
           (config.since != "" && entry.timestamp < config.since) ||
           (config.until != "" && entry.timestamp > config.until) {
           filtered += 1

@@ -37,6 +37,15 @@ class CliSmokeTest(unittest.TestCase):
         report = json.loads(result.stdout)
         self.assertEqual((report["accepted"], report["errors"]), (1, 1))
 
+        result = run_cli(
+            "examples/requests.jsonl", "--status", "200", "--format", "json",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(result.stdout)
+        self.assertEqual(report["accepted"], 3)
+        self.assertEqual(report["filtered"], 1)
+        self.assertTrue(all(group["status"] == 200 for group in report["statuses"]))
+
     def test_strict_mode_and_gate_precedence(self) -> None:
         for args in (
             ("--fail-on-invalid",),
@@ -86,6 +95,8 @@ class CliSmokeTest(unittest.TestCase):
     def test_bad_cli_and_file_fail(self) -> None:
         cases = [
             (("examples/requests.jsonl", "--min-events", "0"), 2),
+            (("examples/requests.jsonl", "--status", "99"), 2),
+            (("examples/requests.jsonl", "--status", "nope"), 2),
             (("examples/requests.jsonl", "--since", "2026-02-29T00:00:00Z"), 2),
             (("examples/requests.jsonl", "--wrong", "yes"), 2),
             (("examples/missing.jsonl",), 1),
