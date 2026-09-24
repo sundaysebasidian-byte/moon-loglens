@@ -1,0 +1,10 @@
+import {
+  "sundaysebasidian-byte/moon-loglens" @app,
+  "moonbitlang/core/env",
+  "moonbitlang/core/string",
+  "moonbitlang/async/fs",
+  "moonbitlang/async/stdio",
+  "moonbitlang/async",
+}
+
+pkgtype(kind: "executable")

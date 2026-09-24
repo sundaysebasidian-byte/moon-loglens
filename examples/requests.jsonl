@@ -1,0 +1,5 @@
+{"timestamp":"2026-09-24T03:00:00Z","service":"api","level":"INFO","status":200,"latency_ms":12}
+{"timestamp":"2026-09-24T03:00:01Z","service":"api","level":"ERROR","status":503,"latency_ms":150}
+{"timestamp":"2026-09-24T03:00:02Z","service":"worker","level":"INFO","status":200,"latency_ms":40}
+{"timestamp":"2026-09-24T03:00:03Z","service":"api","level":"INFO","status":200,"latency_ms":20}
+not-json

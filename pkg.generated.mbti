@@ -1,0 +1,53 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "sundaysebasidian-byte/moon-loglens"
+
+// Values
+pub fn analyze(String, config? : Config) -> Report
+
+pub fn valid_timestamp(String) -> Bool
+
+// Errors
+
+// Types and methods
+pub struct Config {
+  service : String
+  level : String
+  since : String
+  until : String
+}
+pub fn Config::new(service? : String, level? : String, since? : String, until? : String) -> Self
+pub fn Config::validate(Self) -> String?
+
+pub struct Report {
+  accepted : Int
+  filtered : Int
+  invalid : Int
+  invalid_lines : Array[Int]
+  errors : Int
+  error_rate_pct : Double
+  services : Array[ServiceStats]
+  statuses : Array[StatusStats]
+}
+pub fn Report::to_json(Self) -> Json
+pub fn Report::to_text(Self) -> String
+
+pub struct ServiceStats {
+  name : String
+  count : Int
+  errors : Int
+  error_rate_pct : Double
+  p50_ms : Double
+  p95_ms : Double
+}
+
+pub struct StatusStats {
+  service : String
+  status : Int
+  count : Int
+  p50_ms : Double
+  p95_ms : Double
+}
+
+// Type aliases
+
+// Traits
