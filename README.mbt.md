@@ -11,11 +11,13 @@ Install the [MoonBit toolchain](https://docs.moonbitlang.com/en/stable/tutorial/
 ```sh
 moon update
 moon test --target native
+python3 tests/cli_smoke.py
 moon run cmd/main examples/requests.jsonl
 moon run cmd/main examples/requests.jsonl --service api --level ERROR --format json
+moon run cmd/main examples/requests.jsonl --min-events 1 --fail-on-invalid --max-error-rate 20
 ```
 
-On Windows PowerShell, install MoonBit, add `moon` to `PATH`, and use the same `moon` commands. This revision was tested on macOS native; Windows execution has not yet been verified.
+On Windows PowerShell, install MoonBit, add `moon` to `PATH`, and use the same `moon` commands. If Python is installed, run the integration checks with `py tests\cli_smoke.py`. This revision was tested on macOS native; Windows execution has not yet been verified.
 
 Sample text output starts with:
 
@@ -25,7 +27,7 @@ invalid_lines=5
 service="api" requests=3 errors=1 error_rate_pct=33.333333333333336 p50_ms=20 p95_ms=150
 ```
 
-The example deliberately contains one malformed line. A nonzero `invalid` count does not automatically fail the command; review `invalid_lines` and fix the source data as appropriate.
+The example deliberately contains one malformed line. A nonzero `invalid` count does not automatically fail a normal report; review `invalid_lines` and fix the source data as appropriate. The final command above demonstrates a CI gate and exits with code 4 because of that malformed line.
 
 ## Input contract
 
@@ -47,11 +49,12 @@ Extra fields are ignored. Blank lines are ignored. Invalid nonblank lines remain
 moon run cmd/main <input.jsonl> [--service NAME] [--level DEBUG|INFO|WARN|ERROR]
   [--since YYYY-MM-DDTHH:MM:SSZ] [--until YYYY-MM-DDTHH:MM:SSZ]
   [--format text|json] [--max-error-rate PERCENT]
+  [--min-events COUNT] [--fail-on-invalid]
 ```
 
 Time bounds are inclusive. Valid events excluded by filters increment `filtered`, not `invalid`. Counts, percentiles, and error rates use accepted events only. `errors` counts HTTP 5xx statuses; 4xx responses are not counted as server errors. `error_rate_pct = errors / accepted * 100`, with zero for an empty selection. The P50 and P95 calculations use the nearest-rank method on sorted latency values. Results are grouped by service and exact HTTP status; groups are sorted for stable output. Service names in text output are JSON-quoted so control characters cannot create false report lines. JSON output contains the same data as text output.
 
-`--max-error-rate` compares the overall percentage after filtering. Exit codes are 0 for a successful report (even with invalid input lines), 1 when the input file cannot be read, 2 for a CLI or filter error, and 3 when the error-rate threshold is exceeded. A threshold failure still writes the report to standard output, allowing CI to archive it.
+`--max-error-rate` compares the overall percentage after filtering and fails if no events were accepted, because an empty sample cannot prove a healthy error rate. `--min-events` sets a positive minimum accepted sample count. `--fail-on-invalid` rejects any malformed nonblank row, including rows outside the requested filters. All three gates still write the report to standard output for CI artifacts. Exit codes are 0 for a successful report, 1 when the input file cannot be read, 2 for a CLI or filter error, 3 for a failed error-rate gate or an empty error-rate sample, 4 for invalid rows under `--fail-on-invalid`, and 5 for too few accepted events under `--min-events`. If several gates fail, invalid rows take priority, then sample count, then error rate.
 
 ## Scope and limits
 
@@ -67,4 +70,4 @@ moon info
 moon fmt
 ```
 
-The tests cover calendar and schema validation, invalid-line accounting, filters, aggregation, percentile boundaries, empty input, and JSON serialization. See [`examples/requests.jsonl`](examples/requests.jsonl) for a reproducible demo. Licensed under Apache-2.0.
+The MoonBit tests cover calendar and schema validation, invalid-line accounting, filters, aggregation, percentile boundaries, empty input, and JSON serialization. The optional Python standard-library integration tests exercise the actual CLI, JSON output, and exit codes. See [`examples/requests.jsonl`](examples/requests.jsonl) for a reproducible demo. Licensed under Apache-2.0.

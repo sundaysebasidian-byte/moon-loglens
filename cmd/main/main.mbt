@@ -3,7 +3,7 @@ extern "C" fn exit(code : Int) = "exit"
 
 ///|
 fn usage() -> String {
-  "Usage: moon run cmd/main <input.jsonl> [--service NAME] [--level DEBUG|INFO|WARN|ERROR] [--since UTC] [--until UTC] [--format text|json] [--max-error-rate PERCENT]\n"
+  "Usage: moon run cmd/main <input.jsonl> [--service NAME] [--level DEBUG|INFO|WARN|ERROR] [--since UTC] [--until UTC] [--format text|json] [--max-error-rate PERCENT] [--min-events COUNT] [--fail-on-invalid]\n"
 }
 
 ///|
@@ -33,8 +33,15 @@ async fn main {
   let mut until = ""
   let mut format = "text"
   let mut maximum : Double? = None
+  let mut minimum_events = 0
+  let mut fail_on_invalid = false
   let mut i = 2
   while i < args.length() {
+    if args[i] == "--fail-on-invalid" {
+      fail_on_invalid = true
+      i += 1
+      continue
+    }
     if i + 1 >= args.length() {
       bad_argument("missing value for \{args[i]}")
       return
@@ -46,6 +53,22 @@ async fn main {
       "--since" => since = value
       "--until" => until = value
       "--format" => format = value
+      "--min-events" => {
+        let parsed = Some(@string.parse_int(value)) catch { _ => None }
+        match parsed {
+          Some(n) => {
+            if n < 1 {
+              bad_argument("--min-events must be a positive integer")
+              return
+            }
+            minimum_events = n
+          }
+          None => {
+            bad_argument("--min-events must be a positive integer")
+            return
+          }
+        }
+      }
       "--max-error-rate" => {
         let parsed = Some(@string.parse_double(value)) catch { _ => None }
         match parsed {
@@ -91,7 +114,14 @@ async fn main {
   } else {
     @stdio.stdout.write(report.to_text())
   }
-  if maximum is Some(limit) && report.error_rate_pct > limit {
+  if fail_on_invalid && report.invalid > 0 {
+    exit(4)
+  }
+  if minimum_events > 0 && report.accepted < minimum_events {
+    exit(5)
+  }
+  if maximum is Some(limit) &&
+    (report.accepted == 0 || report.error_rate_pct > limit) {
     exit(3)
   }
 }
