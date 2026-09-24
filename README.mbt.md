@@ -17,6 +17,7 @@ moon run cmd/main examples/requests.jsonl --service api --level ERROR --format j
 moon run cmd/main examples/requests.jsonl --status 503 --format json
 moon run cmd/main examples/requests.jsonl --min-events 1 --fail-on-invalid --max-error-rate 20
 moon run cmd/main examples/requests.jsonl --max-p95-ms 100
+moon run cmd/main examples/requests.jsonl --max-service-error-rate 30
 ```
 
 On Windows PowerShell, install MoonBit, add `moon` to `PATH`, and use the same `moon` commands. If Python is installed, run the integration checks with `py tests\cli_smoke.py`. The project owner ran the guarded check/build/test and CLI smoke workflow on Windows against commit `91a848e` on 2026-09-24; the shared output shows all five Python integration tests passing and the expected sample report. The native macOS test suite also passed. Linux has not been tested.
@@ -51,13 +52,14 @@ Extra fields are ignored. Blank lines are ignored. Invalid nonblank lines remain
 moon run cmd/main <input.jsonl> [--service NAME] [--level DEBUG|INFO|WARN|ERROR]
   [--status 100..599]
   [--since YYYY-MM-DDTHH:MM:SSZ] [--until YYYY-MM-DDTHH:MM:SSZ]
-  [--format text|json] [--max-error-rate PERCENT] [--max-p95-ms MILLISECONDS]
+  [--format text|json] [--max-error-rate PERCENT] [--max-service-error-rate PERCENT]
+  [--max-p95-ms MILLISECONDS]
   [--min-events COUNT] [--fail-on-invalid]
 ```
 
 Time bounds are inclusive and accept the same second or millisecond UTC forms. Whole seconds are treated as `.000Z`: an `--until` bound at `03:00:00Z` excludes events later within that second. `--status` selects one exact HTTP response code. Valid events excluded by filters increment `filtered`, not `invalid`. Counts, percentiles, and error rates use accepted events only. `errors` counts HTTP 5xx statuses; 4xx responses are not counted as server errors. `error_rate_pct = errors / accepted * 100`, with zero for an empty selection. The P50 and P95 calculations use the nearest-rank method on sorted latency values, including the overall P50/P95 in the first report line. Results are grouped by service and exact HTTP status; groups are sorted for stable output. Service names in text output are JSON-quoted so control characters cannot create false report lines. JSON output contains the same data as text output.
 
-`--max-error-rate` compares the overall percentage after filtering and fails if no events were accepted, because an empty sample cannot prove a healthy error rate. `--max-p95-ms` compares the overall P95 latency after filtering and also fails on an empty sample. `--min-events` sets a positive minimum accepted sample count. `--fail-on-invalid` rejects any malformed nonblank row, including rows outside the requested filters. All gates still write the report to standard output for CI artifacts. Exit codes are 0 for a successful report, 1 when the input file cannot be read, 2 for a CLI or filter error, 3 for a failed error-rate gate or an empty error-rate sample, 4 for invalid rows under `--fail-on-invalid`, 5 for too few accepted events under `--min-events`, and 6 for a failed P95 gate. If several gates fail, invalid rows take priority, then sample count, then error rate, then P95.
+`--max-error-rate` compares the overall percentage after filtering and fails if no events were accepted, because an empty sample cannot prove a healthy error rate. `--max-service-error-rate` checks every accepted service group, catching one unhealthy service that a healthy overall rate could hide; it also fails on an empty sample. `--max-p95-ms` compares the overall P95 latency after filtering and also fails on an empty sample. `--min-events` sets a positive minimum accepted sample count. `--fail-on-invalid` rejects any malformed nonblank row, including rows outside the requested filters. All gates still write the report to standard output for CI artifacts. Exit codes are 0 for a successful report, 1 when the input file cannot be read, 2 for a CLI or filter error, 3 for a failed overall error-rate gate or an empty error-rate sample, 4 for invalid rows under `--fail-on-invalid`, 5 for too few accepted events under `--min-events`, 6 for a failed P95 gate, and 7 for a failed per-service error-rate gate. If several gates fail, invalid rows take priority, then sample count, overall error rate, P95, and per-service error rate.
 
 ## Scope and limits
 

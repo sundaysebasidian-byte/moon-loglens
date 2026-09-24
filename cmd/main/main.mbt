@@ -3,7 +3,7 @@ extern "C" fn exit(code : Int) = "exit"
 
 ///|
 fn usage() -> String {
-  "Usage: moon run cmd/main <input.jsonl> [--service NAME] [--level DEBUG|INFO|WARN|ERROR] [--status 100..599] [--since UTC] [--until UTC] [--format text|json] [--max-error-rate PERCENT] [--max-p95-ms MILLISECONDS] [--min-events COUNT] [--fail-on-invalid]\n"
+  "Usage: moon run cmd/main <input.jsonl> [--service NAME] [--level DEBUG|INFO|WARN|ERROR] [--status 100..599] [--since UTC] [--until UTC] [--format text|json] [--max-error-rate PERCENT] [--max-service-error-rate PERCENT] [--max-p95-ms MILLISECONDS] [--min-events COUNT] [--fail-on-invalid]\n"
 }
 
 ///|
@@ -34,6 +34,7 @@ async fn main {
   let mut until = ""
   let mut format = "text"
   let mut maximum : Double? = None
+  let mut maximum_service_rate : Double? = None
   let mut maximum_p95 : Double? = None
   let mut minimum_events = 0
   let mut fail_on_invalid = false
@@ -97,6 +98,22 @@ async fn main {
           }
         }
       }
+      "--max-service-error-rate" => {
+        let parsed = Some(@string.parse_double(value)) catch { _ => None }
+        match parsed {
+          Some(n) => {
+            if n.is_nan() || n < 0.0 || n > 100.0 {
+              bad_argument("--max-service-error-rate must be between 0 and 100")
+              return
+            }
+            maximum_service_rate = Some(n)
+          }
+          None => {
+            bad_argument("--max-service-error-rate must be a number")
+            return
+          }
+        }
+      }
       "--max-p95-ms" => {
         let parsed = Some(@string.parse_double(value)) catch { _ => None }
         match parsed {
@@ -155,5 +172,15 @@ async fn main {
   if maximum_p95 is Some(limit) &&
     (report.accepted == 0 || report.p95_ms > limit) {
     exit(6)
+  }
+  if maximum_service_rate is Some(limit) {
+    if report.accepted == 0 {
+      exit(7)
+    }
+    for service in report.services {
+      if service.error_rate_pct > limit {
+        exit(7)
+      }
+    }
   }
 }

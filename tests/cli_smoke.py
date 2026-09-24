@@ -89,6 +89,16 @@ class CliSmokeTest(unittest.TestCase):
         self.assertEqual(result.returncode, 6, result.stderr)
         self.assertEqual(json.loads(result.stdout)["p95_ms"], 150)
 
+    def test_service_gate_detects_a_hot_service(self) -> None:
+        result = run_cli(
+            "examples/requests.jsonl", "--max-error-rate", "25",
+            "--max-service-error-rate", "30",
+        )
+        self.assertEqual(result.returncode, 7, result.stderr)
+        self.assertIn('service="api" requests=3 errors=1', result.stdout)
+        result = run_cli("examples/requests.jsonl", "--max-service-error-rate", "34")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_millisecond_filter_boundaries(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "millisecond.jsonl"
@@ -114,10 +124,12 @@ class CliSmokeTest(unittest.TestCase):
                 (str(empty), "--max-error-rate", "0"),
                 ("examples/requests.jsonl", "--service", "missing", "--max-error-rate", "0"),
                 ("examples/requests.jsonl", "--service", "missing", "--max-p95-ms", "0"),
+                ("examples/requests.jsonl", "--service", "missing", "--max-service-error-rate", "0"),
             ):
                 with self.subTest(args=args):
                     result = run_cli(*args)
-                    self.assertEqual(result.returncode, 3 if "--max-error-rate" in args else 6, result.stderr)
+                    expected = 3 if "--max-error-rate" in args else 6 if "--max-p95-ms" in args else 7
+                    self.assertEqual(result.returncode, expected, result.stderr)
                     self.assertIn("accepted=0", result.stdout)
 
     def test_bad_cli_and_file_fail(self) -> None:
@@ -126,6 +138,7 @@ class CliSmokeTest(unittest.TestCase):
             (("examples/requests.jsonl", "--status", "99"), 2),
             (("examples/requests.jsonl", "--status", "nope"), 2),
             (("examples/requests.jsonl", "--max-p95-ms", "-1"), 2),
+            (("examples/requests.jsonl", "--max-service-error-rate", "101"), 2),
             (("examples/requests.jsonl", "--since", "2026-02-29T00:00:00Z"), 2),
             (("examples/requests.jsonl", "--wrong", "yes"), 2),
             (("examples/missing.jsonl",), 1),
