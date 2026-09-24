@@ -26,6 +26,8 @@ pub struct Report {
   invalid_lines : Array[Int]
   errors : Int
   error_rate_pct : Double
+  p50_ms : Double
+  p95_ms : Double
   services : Array[ServiceStats]
   statuses : Array[StatusStats]
 }

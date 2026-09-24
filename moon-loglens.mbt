@@ -73,6 +73,8 @@ pub struct Report {
   invalid_lines : Array[Int]
   errors : Int
   error_rate_pct : Double
+  p50_ms : Double
+  p95_ms : Double
   services : Array[ServiceStats]
   statuses : Array[StatusStats]
 }
@@ -239,8 +241,10 @@ pub fn analyze(content : String, config? : Config = Config::new()) -> Report {
   let group_services : Array[String] = []
   let group_statuses : Array[Int] = []
   let group_latencies : Array[Array[Double]] = []
+  let all_latencies : Array[Double] = []
   let mut errors = 0
   for entry in entries {
+    all_latencies.push(entry.latency_ms)
     let mut service_index = -1
     for i, name in service_names {
       if name == entry.service {
@@ -314,6 +318,8 @@ pub fn analyze(content : String, config? : Config = Config::new()) -> Report {
     invalid_lines,
     errors,
     error_rate_pct: rate(errors, entries.length()),
+    p50_ms: percentile(all_latencies.copy(), 50),
+    p95_ms: percentile(all_latencies, 95),
     services,
     statuses,
   }
@@ -321,7 +327,7 @@ pub fn analyze(content : String, config? : Config = Config::new()) -> Report {
 
 ///|
 pub fn Report::to_text(self : Report) -> String {
-  let mut output = "accepted=\{self.accepted} filtered=\{self.filtered} invalid=\{self.invalid} errors=\{self.errors} error_rate_pct=\{self.error_rate_pct}\n"
+  let mut output = "accepted=\{self.accepted} filtered=\{self.filtered} invalid=\{self.invalid} errors=\{self.errors} error_rate_pct=\{self.error_rate_pct} p50_ms=\{self.p50_ms} p95_ms=\{self.p95_ms}\n"
   if !self.invalid_lines.is_empty() {
     output += "invalid_lines="
     for i, line in self.invalid_lines {
@@ -377,6 +383,8 @@ pub fn Report::to_json(self : Report) -> Json {
     "invalid_lines": Json::array(bad_lines),
     "errors": Json::number(self.errors.to_double()),
     "error_rate_pct": Json::number(self.error_rate_pct),
+    "p50_ms": Json::number(self.p50_ms),
+    "p95_ms": Json::number(self.p95_ms),
     "services": Json::array(service_values),
     "statuses": Json::array(status_values),
   }

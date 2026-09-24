@@ -79,6 +79,16 @@ class CliSmokeTest(unittest.TestCase):
                 self.assertEqual(result.returncode, code, result.stderr)
                 self.assertIn("accepted=4", result.stdout)
 
+    def test_latency_gate_uses_global_p95(self) -> None:
+        result = run_cli("examples/requests.jsonl", "--max-p95-ms", "149")
+        self.assertEqual(result.returncode, 6, result.stderr)
+        self.assertIn("p95_ms=150", result.stdout)
+        result = run_cli("examples/requests.jsonl", "--max-p95-ms", "150")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        result = run_cli("examples/requests.jsonl", "--max-p95-ms", "149", "--format", "json")
+        self.assertEqual(result.returncode, 6, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["p95_ms"], 150)
+
     def test_empty_sample_cannot_pass_error_rate_gate(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             empty = Path(directory) / "empty.jsonl"
@@ -86,10 +96,11 @@ class CliSmokeTest(unittest.TestCase):
             for args in (
                 (str(empty), "--max-error-rate", "0"),
                 ("examples/requests.jsonl", "--service", "missing", "--max-error-rate", "0"),
+                ("examples/requests.jsonl", "--service", "missing", "--max-p95-ms", "0"),
             ):
                 with self.subTest(args=args):
                     result = run_cli(*args)
-                    self.assertEqual(result.returncode, 3, result.stderr)
+                    self.assertEqual(result.returncode, 3 if "--max-error-rate" in args else 6, result.stderr)
                     self.assertIn("accepted=0", result.stdout)
 
     def test_bad_cli_and_file_fail(self) -> None:
@@ -97,6 +108,7 @@ class CliSmokeTest(unittest.TestCase):
             (("examples/requests.jsonl", "--min-events", "0"), 2),
             (("examples/requests.jsonl", "--status", "99"), 2),
             (("examples/requests.jsonl", "--status", "nope"), 2),
+            (("examples/requests.jsonl", "--max-p95-ms", "-1"), 2),
             (("examples/requests.jsonl", "--since", "2026-02-29T00:00:00Z"), 2),
             (("examples/requests.jsonl", "--wrong", "yes"), 2),
             (("examples/missing.jsonl",), 1),

@@ -3,7 +3,7 @@ extern "C" fn exit(code : Int) = "exit"
 
 ///|
 fn usage() -> String {
-  "Usage: moon run cmd/main <input.jsonl> [--service NAME] [--level DEBUG|INFO|WARN|ERROR] [--status 100..599] [--since UTC] [--until UTC] [--format text|json] [--max-error-rate PERCENT] [--min-events COUNT] [--fail-on-invalid]\n"
+  "Usage: moon run cmd/main <input.jsonl> [--service NAME] [--level DEBUG|INFO|WARN|ERROR] [--status 100..599] [--since UTC] [--until UTC] [--format text|json] [--max-error-rate PERCENT] [--max-p95-ms MILLISECONDS] [--min-events COUNT] [--fail-on-invalid]\n"
 }
 
 ///|
@@ -34,6 +34,7 @@ async fn main {
   let mut until = ""
   let mut format = "text"
   let mut maximum : Double? = None
+  let mut maximum_p95 : Double? = None
   let mut minimum_events = 0
   let mut fail_on_invalid = false
   let mut i = 2
@@ -96,6 +97,22 @@ async fn main {
           }
         }
       }
+      "--max-p95-ms" => {
+        let parsed = Some(@string.parse_double(value)) catch { _ => None }
+        match parsed {
+          Some(n) => {
+            if n.is_nan() || n < 0.0 || n > 86400000.0 {
+              bad_argument("--max-p95-ms must be between 0 and 86400000")
+              return
+            }
+            maximum_p95 = Some(n)
+          }
+          None => {
+            bad_argument("--max-p95-ms must be a number")
+            return
+          }
+        }
+      }
       _ => {
         bad_argument("unknown option \{args[i]}")
         return
@@ -134,5 +151,9 @@ async fn main {
   if maximum is Some(limit) &&
     (report.accepted == 0 || report.error_rate_pct > limit) {
     exit(3)
+  }
+  if maximum_p95 is Some(limit) &&
+    (report.accepted == 0 || report.p95_ms > limit) {
+    exit(6)
   }
 }

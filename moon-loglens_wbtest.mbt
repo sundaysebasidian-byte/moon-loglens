@@ -60,6 +60,7 @@ test "inclusive UTC and level filters select only eligible valid events" {
   assert_eq(report.errors, 1)
   assert_eq(report.error_rate_pct, 100.0)
   assert_eq(report.services[0].p50_ms, 150.0)
+  assert_eq(report.p95_ms, 150.0)
 }
 
 ///|
@@ -92,6 +93,8 @@ test "service and status aggregation uses nearest-rank p95 and stable order" {
   assert_eq(report.services[1].name, "zeta")
   assert_eq(report.services[1].p50_ms, 10.0)
   assert_eq(report.services[1].p95_ms, 19.0)
+  assert_eq(report.p50_ms, 11.0)
+  assert_eq(report.p95_ms, 20.0)
   assert_eq(report.statuses[0].status, 500)
   assert_eq(report.statuses[1].status, 200)
 }
@@ -101,6 +104,7 @@ test "empty analysis and JSON serialization remain valid" {
   let empty = analyze("\n  \n")
   assert_eq(empty.accepted, 0)
   assert_eq(empty.error_rate_pct, 0.0)
+  assert_eq(empty.p95_ms, 0.0)
   assert_eq(empty.services.length(), 0)
   let report = analyze(
     event("2026-09-24T03:00:00Z", "api", "INFO", "200", "1.5"),
