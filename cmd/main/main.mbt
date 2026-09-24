@@ -56,7 +56,15 @@ async fn main {
       "--status" => {
         let parsed = Some(@string.parse_int(value)) catch { _ => None }
         match parsed {
-          Some(n) => status = n
+          Some(n) => {
+            if n < 100 || n > 599 {
+              bad_argument(
+                "--status must be an HTTP status from 100 through 599",
+              )
+              return
+            }
+            status = n
+          }
           None => {
             bad_argument("--status must be an HTTP status from 100 through 599")
             return

@@ -136,6 +136,8 @@ class CliSmokeTest(unittest.TestCase):
         cases = [
             (("examples/requests.jsonl", "--min-events", "0"), 2),
             (("examples/requests.jsonl", "--status", "99"), 2),
+            (("examples/requests.jsonl", "--status", "0"), 2),
+            (("examples/requests.jsonl", "--status", "600"), 2),
             (("examples/requests.jsonl", "--status", "nope"), 2),
             (("examples/requests.jsonl", "--max-p95-ms", "-1"), 2),
             (("examples/requests.jsonl", "--max-service-error-rate", "101"), 2),
