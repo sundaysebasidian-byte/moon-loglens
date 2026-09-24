@@ -12,11 +12,46 @@ fn event(
 ///|
 test "calendar validation rejects impossible UTC timestamps" {
   assert_true(valid_timestamp("2024-02-29T23:59:59Z"))
+  assert_true(valid_timestamp("2024-02-29T23:59:59.123Z"))
   assert_true(!valid_timestamp("2026-02-29T00:00:00Z"))
   assert_true(!valid_timestamp("2026-13-01T00:00:00Z"))
   assert_true(!valid_timestamp("2026-01-01T24:00:00Z"))
   assert_true(!valid_timestamp("2026-01-01T00:00:60Z"))
   assert_true(!valid_timestamp("2026-01-01T00:00:00+00:00"))
+  assert_true(!valid_timestamp("2026-01-01T00:00:00.12Z"))
+  assert_true(!valid_timestamp("2026-01-01T00:00:00.12aZ"))
+}
+
+///|
+test "second and millisecond timestamps share exact inclusive bounds" {
+  let input = event("2026-09-24T03:00:00Z", "api", "INFO", "200", "1") +
+    "\n" +
+    event("2026-09-24T03:00:00.001Z", "api", "INFO", "200", "2") +
+    "\n" +
+    event("2026-09-24T03:00:00.250Z", "api", "INFO", "200", "3") +
+    "\n" +
+    event("2026-09-24T03:00:01Z", "api", "INFO", "200", "4")
+  let exact_second = analyze(
+    input,
+    config=Config::new(
+      since="2026-09-24T03:00:00Z",
+      until="2026-09-24T03:00:00Z",
+    ),
+  )
+  assert_eq(exact_second.accepted, 1)
+  let fractional = analyze(
+    input,
+    config=Config::new(
+      since="2026-09-24T03:00:00.001Z",
+      until="2026-09-24T03:00:00.250Z",
+    ),
+  )
+  assert_eq(fractional.accepted, 2)
+  assert_eq(fractional.filtered, 2)
+  assert_true(
+    Config::new(since="2026-09-24T03:00:00.001Z", until="2026-09-24T03:00:00Z").validate()
+    is Some(_),
+  )
 }
 
 ///|

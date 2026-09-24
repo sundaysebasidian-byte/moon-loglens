@@ -89,6 +89,23 @@ class CliSmokeTest(unittest.TestCase):
         self.assertEqual(result.returncode, 6, result.stderr)
         self.assertEqual(json.loads(result.stdout)["p95_ms"], 150)
 
+    def test_millisecond_filter_boundaries(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "millisecond.jsonl"
+            sample = (ROOT / "examples" / "requests.jsonl").read_text(encoding="utf-8")
+            row = sample.splitlines()[0]
+            path.write_text(
+                row.replace("03:00:00Z", "03:00:00.001Z") + "\n"
+                + row.replace("03:00:00Z", "03:00:00.250Z") + "\n",
+                encoding="utf-8",
+            )
+            result = run_cli(
+                str(path), "--since", "2026-09-24T03:00:00.250Z",
+                "--until", "2026-09-24T03:00:00.250Z", "--format", "json",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout)["accepted"], 1)
+
     def test_empty_sample_cannot_pass_error_rate_gate(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             empty = Path(directory) / "empty.jsonl"

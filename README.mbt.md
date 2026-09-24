@@ -37,7 +37,7 @@ The input is UTF-8 JSON Lines: one JSON object per nonblank line. Every event re
 
 | Field | Type and rule |
 | --- | --- |
-| `timestamp` | A valid fixed-width UTC timestamp such as `2026-09-24T03:00:00Z`; no offsets, fractions, or leap seconds. |
+| `timestamp` | A valid UTC timestamp in whole seconds (`2026-09-24T03:00:00Z`) or exactly three fractional digits (`2026-09-24T03:00:00.250Z`); no offsets or leap seconds. |
 | `service` | A nonblank string. |
 | `level` | Exactly `DEBUG`, `INFO`, `WARN`, or `ERROR`. |
 | `status` | An integer HTTP status from 100 through 599. |
@@ -55,7 +55,7 @@ moon run cmd/main <input.jsonl> [--service NAME] [--level DEBUG|INFO|WARN|ERROR]
   [--min-events COUNT] [--fail-on-invalid]
 ```
 
-Time bounds are inclusive. `--status` selects one exact HTTP response code. Valid events excluded by filters increment `filtered`, not `invalid`. Counts, percentiles, and error rates use accepted events only. `errors` counts HTTP 5xx statuses; 4xx responses are not counted as server errors. `error_rate_pct = errors / accepted * 100`, with zero for an empty selection. The P50 and P95 calculations use the nearest-rank method on sorted latency values, including the overall P50/P95 in the first report line. Results are grouped by service and exact HTTP status; groups are sorted for stable output. Service names in text output are JSON-quoted so control characters cannot create false report lines. JSON output contains the same data as text output.
+Time bounds are inclusive and accept the same second or millisecond UTC forms. Whole seconds are treated as `.000Z`: an `--until` bound at `03:00:00Z` excludes events later within that second. `--status` selects one exact HTTP response code. Valid events excluded by filters increment `filtered`, not `invalid`. Counts, percentiles, and error rates use accepted events only. `errors` counts HTTP 5xx statuses; 4xx responses are not counted as server errors. `error_rate_pct = errors / accepted * 100`, with zero for an empty selection. The P50 and P95 calculations use the nearest-rank method on sorted latency values, including the overall P50/P95 in the first report line. Results are grouped by service and exact HTTP status; groups are sorted for stable output. Service names in text output are JSON-quoted so control characters cannot create false report lines. JSON output contains the same data as text output.
 
 `--max-error-rate` compares the overall percentage after filtering and fails if no events were accepted, because an empty sample cannot prove a healthy error rate. `--max-p95-ms` compares the overall P95 latency after filtering and also fails on an empty sample. `--min-events` sets a positive minimum accepted sample count. `--fail-on-invalid` rejects any malformed nonblank row, including rows outside the requested filters. All gates still write the report to standard output for CI artifacts. Exit codes are 0 for a successful report, 1 when the input file cannot be read, 2 for a CLI or filter error, 3 for a failed error-rate gate or an empty error-rate sample, 4 for invalid rows under `--fail-on-invalid`, 5 for too few accepted events under `--min-events`, and 6 for a failed P95 gate. If several gates fail, invalid rows take priority, then sample count, then error rate, then P95.
 

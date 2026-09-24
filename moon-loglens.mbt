@@ -40,7 +40,9 @@ pub fn Config::validate(self : Config) -> String? {
       "--until must be a valid UTC timestamp such as 2026-09-24T03:00:00Z",
     )
   }
-  if self.since != "" && self.until != "" && self.since > self.until {
+  if self.since != "" &&
+    self.until != "" &&
+    timestamp_sort_key(self.since) > timestamp_sort_key(self.until) {
     return Some("--since must be at or before --until")
   }
   None
@@ -112,15 +114,23 @@ fn digits(s : String, start : Int, end : Int) -> Int {
 }
 
 ///|
-/// Accepts fixed-width UTC ISO 8601 seconds; lexical range filters are exact.
+/// Accepts fixed-width UTC ISO 8601 seconds or milliseconds.
 pub fn valid_timestamp(s : String) -> Bool {
-  if s.length() != 20 ||
+  if (s.length() != 20 && s.length() != 24) ||
     s.unsafe_get(4).to_int() != 45 ||
     s.unsafe_get(7).to_int() != 45 ||
     s.unsafe_get(10).to_int() != 84 ||
     s.unsafe_get(13).to_int() != 58 ||
-    s.unsafe_get(16).to_int() != 58 ||
-    s.unsafe_get(19).to_int() != 90 {
+    s.unsafe_get(16).to_int() != 58 {
+    return false
+  }
+  if s.length() == 20 {
+    if s.unsafe_get(19).to_int() != 90 {
+      return false
+    }
+  } else if s.unsafe_get(19).to_int() != 46 ||
+    s.unsafe_get(23).to_int() != 90 ||
+    digits(s, 20, 23) < 0 {
     return false
   }
   let year = digits(s, 0, 4)
@@ -147,6 +157,16 @@ pub fn valid_timestamp(s : String) -> Bool {
     _ => 31
   }
   day >= 1 && day <= days
+}
+
+///|
+/// Normalizing whole seconds to .000 makes lexical time bounds exact.
+fn timestamp_sort_key(s : String) -> String {
+  if s.length() == 20 {
+    s[:19].to_owned() + ".000Z"
+  } else {
+    s
+  }
 }
 
 ///|
@@ -184,7 +204,13 @@ fn parse_entry(line : String) -> Entry? {
         latency_ms.is_nan() {
         return None
       }
-      Some({ timestamp, service, level, status: status.to_int(), latency_ms, })
+      Some({
+        timestamp: timestamp_sort_key(timestamp),
+        service,
+        level,
+        status: status.to_int(),
+        latency_ms,
+      })
     }
     _ => None
   }
@@ -216,6 +242,16 @@ pub fn analyze(content : String, config? : Config = Config::new()) -> Report {
   let entries : Array[Entry] = []
   let invalid_lines : Array[Int] = []
   let mut filtered = 0
+  let since = if config.since == "" {
+    ""
+  } else {
+    timestamp_sort_key(config.since)
+  }
+  let until = if config.until == "" {
+    ""
+  } else {
+    timestamp_sort_key(config.until)
+  }
   for index, raw_line in content.split("\n") {
     let line = raw_line.trim().to_owned()
     if line.is_empty() {
@@ -227,8 +263,8 @@ pub fn analyze(content : String, config? : Config = Config::new()) -> Report {
         if (config.service != "" && entry.service != config.service) ||
           (config.level != "" && entry.level != config.level) ||
           (config.status != 0 && entry.status != config.status) ||
-          (config.since != "" && entry.timestamp < config.since) ||
-          (config.until != "" && entry.timestamp > config.until) {
+          (since != "" && entry.timestamp < since) ||
+          (until != "" && entry.timestamp > until) {
           filtered += 1
         } else {
           entries.push(entry)
