@@ -20,7 +20,7 @@ moon run cmd/main examples/requests.jsonl --max-p95-ms 100
 moon run cmd/main examples/requests.jsonl --max-service-error-rate 30
 ```
 
-On Windows PowerShell, install MoonBit, add `moon` to `PATH`, and use the same `moon` commands. If Python is installed, run the integration checks with `py tests\cli_smoke.py`. The project owner ran the guarded check/build/test and CLI smoke workflow on Windows against commit `91a848e` on 2026-09-24; the shared output shows all five Python integration tests passing and the expected sample report. The native macOS test suite also passed. Linux has not been tested.
+On Windows PowerShell, install MoonBit, add `moon` to `PATH`, and use the same `moon` commands. If Python is installed, run the integration checks with `py tests\cli_smoke.py`. The project owner ran the guarded check/build/test and CLI smoke workflow on Windows against commit `91a848e` on 2026-09-24; the shared output shows all five Python integration tests passing and the expected sample report. Later changes have been checked on macOS and by the repository's Linux CI; the latest Windows result applies to the earlier commit only.
 
 Sample text output starts with:
 
@@ -30,7 +30,7 @@ invalid_lines=5
 service="api" requests=3 errors=1 error_rate_pct=33.333333333333336 p50_ms=20 p95_ms=150
 ```
 
-The example deliberately contains one malformed line. A nonzero `invalid` count does not automatically fail a normal report; review `invalid_lines` and fix the source data as appropriate. The final command above demonstrates a CI gate and exits with code 4 because of that malformed line.
+The example deliberately contains one malformed line. A nonzero `invalid` count does not automatically fail a normal report; review `invalid_lines` and fix the source data as appropriate. The final command above exits with code 7 because the `api` service exceeds the 30% service error-rate limit. The `--fail-on-invalid` example exits with code 4 because of the malformed line. Both commands still print their reports.
 
 ## Input contract
 
@@ -75,4 +75,4 @@ moon info
 moon fmt
 ```
 
-The MoonBit tests cover calendar and schema validation, invalid-line accounting, filters, aggregation, percentile boundaries, empty input, and JSON serialization. The optional Python standard-library integration tests exercise the actual CLI, JSON output, and exit codes. See [`examples/requests.jsonl`](examples/requests.jsonl) for a reproducible demo. Licensed under Apache-2.0.
+The 10 MoonBit tests cover calendar and schema validation, invalid-line accounting, filters, aggregation across many services, percentile boundaries, empty input, and JSON serialization. The 8 Python standard-library integration tests exercise the actual CLI, JSON output, and exit codes. GitHub Actions runs check, build, both test suites, and the reproducible demo on Linux. See [`examples/requests.jsonl`](examples/requests.jsonl) for the input. Licensed under Apache-2.0.
