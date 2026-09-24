@@ -17,7 +17,7 @@ moon run cmd/main examples/requests.jsonl --service api --level ERROR --format j
 moon run cmd/main examples/requests.jsonl --min-events 1 --fail-on-invalid --max-error-rate 20
 ```
 
-On Windows PowerShell, install MoonBit, add `moon` to `PATH`, and use the same `moon` commands. If Python is installed, run the integration checks with `py tests\cli_smoke.py`. This revision was tested on macOS native; Windows execution has not yet been verified.
+On Windows PowerShell, install MoonBit, add `moon` to `PATH`, and use the same `moon` commands. If Python is installed, run the integration checks with `py tests\cli_smoke.py`. The project owner ran the guarded check/build/test and CLI smoke workflow on Windows against commit `91a848e` on 2026-09-24; the shared output shows all five Python integration tests passing and the expected sample report. The native macOS test suite also passed. Linux has not been tested.
 
 Sample text output starts with:
 
