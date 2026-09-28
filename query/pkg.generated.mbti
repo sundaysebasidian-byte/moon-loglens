@@ -1,0 +1,60 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "sundaysebasidian-byte/moon-loglens/query"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub(all) suberror QueryError {
+  InvalidQuery(String)
+  LimitExceeded(String)
+} derive(@debug.Debug)
+pub fn QueryError::to_repr(Self) -> @debug.Repr
+
+// Types and methods
+pub struct Accumulator {
+  // private fields
+}
+pub fn Accumulator::new(Query) -> Self
+pub fn Accumulator::push_line(Self, String) -> Unit raise QueryError
+pub fn Accumulator::report(Self) -> Report
+
+pub struct GroupStats {
+  key : Array[Json]
+  count : Int
+  metrics : Array[MetricStats]
+} derive(ToJson)
+pub fn GroupStats::to_json(Self) -> Json
+
+pub struct MetricStats {
+  sum : Double
+  min : Double
+  max : Double
+  mean : Double
+} derive(ToJson)
+pub fn MetricStats::to_json(Self) -> Json
+
+pub struct Query {
+  // private fields
+}
+pub fn Query::parse(String) -> Self raise QueryError
+
+pub struct Report {
+  lines : Int
+  accepted : Int
+  filtered : Int
+  invalid : Int
+  invalid_lines : Array[Int]
+  invalid_lines_truncated : Bool
+  group_by : Array[String]
+  metric_fields : Array[String]
+  groups : Array[GroupStats]
+} derive(ToJson)
+pub fn Report::to_json(Self) -> Json
+
+// Type aliases
+
+// Traits

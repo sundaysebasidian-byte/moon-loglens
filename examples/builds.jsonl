@@ -1,0 +1,4 @@
+{"stage":"compile","runner":{"os":"linux"},"duration_s":12,"artifact_bytes":1000,"branch":"main"}
+{"stage":"compile","runner":{"os":"linux"},"duration_s":18,"artifact_bytes":1500,"branch":"main"}
+{"stage":"test","runner":{"os":"windows"},"duration_s":9,"artifact_bytes":200,"branch":"main"}
+{"stage":"test","runner":{"os":"linux"},"duration_s":7,"artifact_bytes":100,"branch":"feature"}

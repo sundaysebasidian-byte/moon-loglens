@@ -1,0 +1,5 @@
+{
+  "group_by": ["/task/queue", "/outcome"],
+  "metrics": ["/elapsed_ms", "/attempts"],
+  "where": [{"path": "/env", "op": "eq", "value": "production"}]
+}

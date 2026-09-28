@@ -1,0 +1,5 @@
+import {
+  "sundaysebasidian-byte/moon-loglens/query" @lens,
+}
+
+pkgtype(kind: "executable")

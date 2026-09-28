@@ -1,0 +1,5 @@
+{
+  "group_by": ["/site", "/device"],
+  "metrics": ["/readings/0/celsius", "/battery_pct"],
+  "where": [{"path": "/valid", "op": "eq", "value": true}]
+}

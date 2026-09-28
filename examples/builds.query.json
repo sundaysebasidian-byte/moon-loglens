@@ -1,0 +1,5 @@
+{
+  "group_by": ["/stage", "/runner/os"],
+  "metrics": ["/duration_s", "/artifact_bytes"],
+  "where": [{"path": "/branch", "op": "eq", "value": "main"}]
+}

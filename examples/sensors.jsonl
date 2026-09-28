@@ -1,0 +1,4 @@
+{"device":"freezer-a","site":"north","readings":[{"celsius":-20}],"battery_pct":95,"valid":true}
+{"device":"freezer-a","site":"north","readings":[{"celsius":-18}],"battery_pct":93,"valid":true}
+{"device":"room-b","site":"south","readings":[{"celsius":22}],"battery_pct":80,"valid":true}
+{"device":"room-b","site":"south","readings":[{"celsius":100}],"battery_pct":79,"valid":false}

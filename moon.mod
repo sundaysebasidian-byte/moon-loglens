@@ -11,7 +11,7 @@
 
 name = "sundaysebasidian-byte/moon-loglens"
 
-version = "0.1.0"
+version = "0.2.0"
 
 readme = "README.mbt.md"
 
@@ -19,11 +19,11 @@ repository = "https://github.com/sundaysebasidian-byte/moon-loglens"
 
 license = "Apache-2.0"
 
-keywords = [ "jsonl", "logs", "cli", "observability" ]
+keywords = [ "jsonl", "logs", "query", "aggregation", "cli" ]
 
 preferred_target = "native"
 
-description = "Validate and summarize JSONL request logs with a native MoonBit CLI"
+description = "Reusable streaming JSONL queries with nested fields, filters and grouped metrics; includes HTTP log analysis"
 
 import {
   "moonbitlang/async@0.20.2",
