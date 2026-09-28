@@ -385,7 +385,7 @@ pub fn analyze(content : String, config? : Config = Config::new()) -> Report {
 
 ///|
 pub fn Report::to_text(self : Report) -> String {
-  let output = StringBuilder::new()
+  let output = StringBuilder()
   output.write_string(
     "accepted=\{self.accepted} filtered=\{self.filtered} invalid=\{self.invalid} errors=\{self.errors} error_rate_pct=\{self.error_rate_pct} p50_ms=\{self.p50_ms} p95_ms=\{self.p95_ms}\n",
   )
