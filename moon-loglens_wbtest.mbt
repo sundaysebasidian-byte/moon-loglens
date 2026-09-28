@@ -190,3 +190,39 @@ test "invalid filters are rejected before analysis" {
   )
   assert_true(Config::new().validate() is None)
 }
+
+///|
+test "byte order mark and CRLF line endings do not create invalid rows" {
+  let input = "\u{FEFF}" +
+    event("2026-09-24T03:00:00Z", "api", "INFO", "200", "5") +
+    "\r\n" +
+    "oops\r\n" +
+    "\r\n" +
+    "{}\r\n" +
+    event("2026-09-24T03:00:01Z", "api", "ERROR", "500", "7") +
+    "\r\n"
+  let report = analyze(input)
+  assert_eq(report.accepted, 2)
+  assert_eq(report.errors, 1)
+  assert_eq(report.invalid_lines, [2, 4])
+  assert_true(report.to_text().contains("invalid_lines=2,4\n"))
+}
+
+///|
+test "nearest rank handles small and unsorted groups" {
+  assert_eq(nearest_rank([], 95), 0.0)
+  assert_eq(nearest_rank([7.0], 50), 7.0)
+  assert_eq(nearest_rank([7.0], 95), 7.0)
+  assert_eq(nearest_rank([1.0, 2.0], 50), 1.0)
+  assert_eq(nearest_rank([1.0, 2.0], 95), 2.0)
+  let report = analyze(
+    event("2026-09-24T03:00:00Z", "api", "INFO", "200", "30") +
+    "\n" +
+    event("2026-09-24T03:00:01Z", "api", "INFO", "200", "10") +
+    "\n" +
+    event("2026-09-24T03:00:02Z", "api", "INFO", "200", "20"),
+  )
+  assert_eq(report.statuses[0].p50_ms, 20.0)
+  assert_eq(report.services[0].p95_ms, 30.0)
+  assert_eq(report.p50_ms, 20.0)
+}

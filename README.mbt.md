@@ -44,7 +44,7 @@ The input is UTF-8 JSON Lines: one JSON object per nonblank line. Every event re
 | `status` | An integer HTTP status from 100 through 599. |
 | `latency_ms` | A finite number from 0 through 86,400,000. |
 
-Extra fields are ignored. Blank lines are ignored. Invalid nonblank lines remain visible through `invalid` and `invalid_lines`, even when filters are active. Physical line numbers start at 1.
+Extra fields are ignored. Blank lines are ignored. A leading UTF-8 byte order mark and CRLF line endings are accepted. Invalid nonblank lines remain visible through `invalid` and `invalid_lines`, even when filters are active. Physical line numbers start at 1.
 
 ## Filters and report
 
@@ -63,7 +63,7 @@ Time bounds are inclusive and accept the same second or millisecond UTC forms. W
 
 ## Scope and limits
 
-The current implementation reads the whole file and keeps selected events in memory, so it is intended for bounded local logs and CI artifacts rather than unbounded streams. It does not parse arbitrary logging formats, normalize timezone offsets, infer missing fields, or redact arbitrary extra fields in the input file; reports never echo raw lines. `--max-error-rate` checks only accepted events. The tool does not send data over the network.
+The current implementation reads the whole file and aggregates accepted events in a single pass, keeping only their latencies in memory for percentiles, so it is intended for bounded local logs and CI artifacts rather than unbounded streams. It does not parse arbitrary logging formats, normalize timezone offsets, infer missing fields, or redact arbitrary extra fields in the input file; reports never echo raw lines. `--max-error-rate` checks only accepted events. The tool does not send data over the network.
 
 ## Development
 
@@ -75,4 +75,4 @@ moon info
 moon fmt
 ```
 
-The 10 MoonBit tests cover calendar and schema validation, invalid-line accounting, filters, aggregation across many services, percentile boundaries, empty input, and JSON serialization. The 8 Python standard-library integration tests exercise the actual CLI, JSON output, and exit codes. GitHub Actions runs check, build, both test suites, and the reproducible demo on Linux. See [`examples/requests.jsonl`](examples/requests.jsonl) for the input. Licensed under Apache-2.0.
+The 12 MoonBit tests cover calendar and schema validation, invalid-line accounting, byte order marks and CRLF input, filters, aggregation across many services, percentile boundaries, empty input, and JSON serialization. The 8 Python standard-library integration tests exercise the actual CLI, JSON output, and exit codes. GitHub Actions runs check, build, both test suites, and the reproducible demo on Linux. See [`examples/requests.jsonl`](examples/requests.jsonl) for the input. Licensed under Apache-2.0.

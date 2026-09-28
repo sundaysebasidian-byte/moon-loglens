@@ -217,13 +217,15 @@ fn parse_entry(line : String) -> Entry? {
 }
 
 ///|
-fn percentile(values : Array[Double], percentile : Int) -> Double {
-  if values.is_empty() {
+/// Nearest-rank percentile of values that are already sorted ascending.
+fn nearest_rank(sorted : Array[Double], pct : Int) -> Double {
+  let n = sorted.length()
+  if n == 0 {
     return 0.0
   }
-  values.sort_by(fn(a, b) { if a < b { -1 } else if a > b { 1 } else { 0 } })
-  let index = ((values.length() * percentile + 99) / 100 - 1).max(0)
-  values[index]
+  // ceil(n * pct / 100), split so that very large inputs cannot overflow Int.
+  let rank = n / 100 * pct + (n % 100 * pct + 99) / 100
+  sorted[(rank - 1).max(0)]
 }
 
 ///|
@@ -236,10 +238,25 @@ fn rate(errors : Int, count : Int) -> Double {
 }
 
 ///|
+priv struct ServiceGroup {
+  name : String
+  latencies : Array[Double]
+  mut errors : Int
+  status_indices : @hashmap.HashMap[Int, Int]
+}
+
+///|
+priv struct StatusGroup {
+  service : String
+  status : Int
+  latencies : Array[Double]
+}
+
+///|
 /// Invalid nonblank lines are reported by physical line number without
 /// including raw content, so a report does not expose log payloads.
+/// Accepted events are aggregated as they are read; only latencies are kept.
 pub fn analyze(content : String, config? : Config = Config::new()) -> Report {
-  let entries : Array[Entry] = []
   let invalid_lines : Array[Int] = []
   let mut filtered = 0
   let since = if config.since == "" {
@@ -251,6 +268,18 @@ pub fn analyze(content : String, config? : Config = Config::new()) -> Report {
     ""
   } else {
     timestamp_sort_key(config.until)
+  }
+  let service_indices : @hashmap.HashMap[String, Int] = HashMap([])
+  let service_groups : Array[ServiceGroup] = []
+  let status_groups : Array[StatusGroup] = []
+  let all_latencies : Array[Double] = []
+  let mut errors = 0
+  // Editors on Windows often save UTF-8 with a byte order mark, which would
+  // otherwise make the first line invalid JSON.
+  let content = if content.has_prefix("\u{FEFF}") {
+    content[1:].to_owned()
+  } else {
+    content
   }
   for index, raw_line in content.split("\n") {
     let line = raw_line.trim().to_owned()
@@ -267,77 +296,68 @@ pub fn analyze(content : String, config? : Config = Config::new()) -> Report {
           (until != "" && entry.timestamp > until) {
           filtered += 1
         } else {
-          entries.push(entry)
+          all_latencies.push(entry.latency_ms)
+          let service = match service_indices.get(entry.service) {
+            Some(existing) => service_groups[existing]
+            None => {
+              let status_indices : @hashmap.HashMap[Int, Int] = HashMap([])
+              let group : ServiceGroup = {
+                name: entry.service,
+                latencies: [],
+                errors: 0,
+                status_indices,
+              }
+              service_indices.set(entry.service, service_groups.length())
+              service_groups.push(group)
+              group
+            }
+          }
+          service.latencies.push(entry.latency_ms)
+          if entry.status >= 500 {
+            service.errors += 1
+            errors += 1
+          }
+          let status_group = match service.status_indices.get(entry.status) {
+            Some(existing) => status_groups[existing]
+            None => {
+              let group : StatusGroup = {
+                service: entry.service,
+                status: entry.status,
+                latencies: [],
+              }
+              service.status_indices.set(entry.status, status_groups.length())
+              status_groups.push(group)
+              group
+            }
+          }
+          status_group.latencies.push(entry.latency_ms)
         }
     }
   }
-  let service_names : Array[String] = []
-  let service_indices : @hashmap.HashMap[String, Int] = HashMap([])
-  let service_latencies : Array[Array[Double]] = []
-  let service_errors : Array[Int] = []
-  let group_services : Array[String] = []
-  let group_statuses : Array[Int] = []
-  let group_indices : @hashmap.HashMap[String, Int] = HashMap([])
-  let group_latencies : Array[Array[Double]] = []
-  let all_latencies : Array[Double] = []
-  let mut errors = 0
-  for entry in entries {
-    all_latencies.push(entry.latency_ms)
-    let service_index = match service_indices.get(entry.service) {
-      Some(index) => index
-      None => {
-        let index = service_names.length()
-        service_indices.set(entry.service, index)
-        service_names.push(entry.service)
-        service_latencies.push([])
-        service_errors.push(0)
-        index
-      }
-    }
-    service_latencies[service_index].push(entry.latency_ms)
-    if entry.status >= 500 {
-      service_errors[service_index] += 1
-      errors += 1
-    }
-    // The length prefix makes the composite key unambiguous even if a
-    // service name contains punctuation or digits used by the status code.
-    let group_key = "\{entry.service.length()}:\{entry.service}:\{entry.status}"
-    let group_index = match group_indices.get(group_key) {
-      Some(index) => index
-      None => {
-        let index = group_services.length()
-        group_indices.set(group_key, index)
-        group_services.push(entry.service)
-        group_statuses.push(entry.status)
-        group_latencies.push([])
-        index
-      }
-    }
-    group_latencies[group_index].push(entry.latency_ms)
-  }
   let services : Array[ServiceStats] = []
-  for i, name in service_names {
-    let count = service_latencies[i].length()
-    let service_error_count = service_errors[i]
+  for group in service_groups {
+    let latencies = group.latencies
+    latencies.sort()
     services.push({
-      name,
-      count,
-      errors: service_error_count,
-      error_rate_pct: rate(service_error_count, count),
-      p50_ms: percentile(service_latencies[i].copy(), 50),
-      p95_ms: percentile(service_latencies[i].copy(), 95),
+      name: group.name,
+      count: latencies.length(),
+      errors: group.errors,
+      error_rate_pct: rate(group.errors, latencies.length()),
+      p50_ms: nearest_rank(latencies, 50),
+      p95_ms: nearest_rank(latencies, 95),
     })
   }
   services.sort_by(fn(a, b) { a.name[:].lexical_compare(b.name[:]) })
   let statuses : Array[StatusStats] = []
-  for i, service in group_services {
-    let latencies = group_latencies[i]
+  for group in status_groups {
+    let latencies = group.latencies
+    latencies.sort()
     statuses.push({
-      service,
-      status: group_statuses[i],
+      service: group.service,
+      status: group.status,
       count: latencies.length(),
-      p50_ms: percentile(latencies.copy(), 50),
-      p95_ms: percentile(latencies.copy(), 95),
+      p50_ms: nearest_rank(latencies, 50),
+      p95_ms: nearest_rank(latencies, 95),
     })
   }
   statuses.sort_by(fn(a, b) {
@@ -348,15 +368,16 @@ pub fn analyze(content : String, config? : Config = Config::new()) -> Report {
       a.status.compare(b.status)
     }
   })
+  all_latencies.sort()
   {
-    accepted: entries.length(),
+    accepted: all_latencies.length(),
     filtered,
     invalid: invalid_lines.length(),
     invalid_lines,
     errors,
-    error_rate_pct: rate(errors, entries.length()),
-    p50_ms: percentile(all_latencies.copy(), 50),
-    p95_ms: percentile(all_latencies, 95),
+    error_rate_pct: rate(errors, all_latencies.length()),
+    p50_ms: nearest_rank(all_latencies, 50),
+    p95_ms: nearest_rank(all_latencies, 95),
     services,
     statuses,
   }
@@ -364,26 +385,33 @@ pub fn analyze(content : String, config? : Config = Config::new()) -> Report {
 
 ///|
 pub fn Report::to_text(self : Report) -> String {
-  let mut output = "accepted=\{self.accepted} filtered=\{self.filtered} invalid=\{self.invalid} errors=\{self.errors} error_rate_pct=\{self.error_rate_pct} p50_ms=\{self.p50_ms} p95_ms=\{self.p95_ms}\n"
+  let output = StringBuilder::new()
+  output.write_string(
+    "accepted=\{self.accepted} filtered=\{self.filtered} invalid=\{self.invalid} errors=\{self.errors} error_rate_pct=\{self.error_rate_pct} p50_ms=\{self.p50_ms} p95_ms=\{self.p95_ms}\n",
+  )
   if !self.invalid_lines.is_empty() {
-    output += "invalid_lines="
+    output.write_string("invalid_lines=")
     for i, line in self.invalid_lines {
       if i > 0 {
-        output += ","
+        output.write_char(',')
       }
-      output += line.to_string()
+      output.write_string(line.to_string())
     }
-    output += "\n"
+    output.write_char('\n')
   }
   for service in self.services {
     let name = Json::string(service.name).stringify()
-    output += "service=\{name} requests=\{service.count} errors=\{service.errors} error_rate_pct=\{service.error_rate_pct} p50_ms=\{service.p50_ms} p95_ms=\{service.p95_ms}\n"
+    output.write_string(
+      "service=\{name} requests=\{service.count} errors=\{service.errors} error_rate_pct=\{service.error_rate_pct} p50_ms=\{service.p50_ms} p95_ms=\{service.p95_ms}\n",
+    )
   }
   for group in self.statuses {
     let name = Json::string(group.service).stringify()
-    output += "service=\{name} status=\{group.status} requests=\{group.count} p50_ms=\{group.p50_ms} p95_ms=\{group.p95_ms}\n"
+    output.write_string(
+      "service=\{name} status=\{group.status} requests=\{group.count} p50_ms=\{group.p50_ms} p95_ms=\{group.p95_ms}\n",
+    )
   }
-  output
+  output.to_string()
 }
 
 ///|
