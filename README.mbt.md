@@ -4,9 +4,49 @@ Moon LogLens provides reusable JSONL analysis in MoonBit. Version 0.2.0 adds a s
 
 Parsing, validation, filtering, aggregation, and reporting are implemented in MoonBit. The public `query` package uses only MoonBit core APIs and performs no file or network I/O; applications supply lines themselves. The native CLIs use [`moonbitlang/async`](https://mooncakes.io/docs/moonbitlang/async) for I/O. All example data is illustrative test data, not production telemetry.
 
+## Reproduce on Linux or macOS
+
+Linux and macOS are the recommended platforms. The validated compiler is
+`moonc v0.10.14+7d59c7ec9`; CI installs that exact release and checks its version.
+An existing installation of that release can be reused. If it is unavailable,
+the [official versioned Unix installer](https://www.moonbitlang.com/updates/2024/05/27/weekly-05-27)
+accepts the complete version as a positional argument:
+
+```sh
+# Optional installation into a fresh, isolated directory:
+export MOON_HOME="$(mktemp -d)"
+export PATH="$MOON_HOME/bin:$PATH"
+curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s 0.10.14+7d59c7ec9
+```
+
+With Git, Python 3 and the MoonBit native toolchain available, run:
+
+```sh
+git clone https://github.com/sundaysebasidian-byte/moon-loglens.git
+cd moon-loglens
+moon version --all
+moon update
+moon check --target native
+moon build --target native
+moon test --target native
+python3 tests/cli_smoke.py
+python3 tests/query_cli.py
+moon run cmd/main examples/requests.jsonl
+moon run cmd/query examples/jobs.jsonl examples/jobs.query.json
+moon run cmd/query examples/builds.jsonl examples/builds.query.json
+moon run cmd/query examples/sensors.jsonl examples/sensors.query.json
+moon run examples/reuse
+```
+
+The public 0.2.0 baseline is commit `f2744fad8225b2276f1a41338ac428d312cd4d06`.
+The [acceptance script](scripts/acceptance.py) in this repository runs these checks plus the
+external registry consumer and host input-boundary suite, and records evidence.
+Current Windows kernel execution is unverified; the historical Windows result
+and macOS input-boundary simulation below do not establish current Windows support.
+
 ## Schema-independent queries
 
-Use MoonBit `moonc >= 0.10.14`, resolve dependencies with `moon update`, then run:
+Use the validated toolchain above, resolve dependencies with `moon update`, then run:
 
 ```sh
 moon run cmd/query examples/jobs.jsonl examples/jobs.query.json
@@ -43,11 +83,25 @@ cat examples/jobs.jsonl | moon run cmd/query - examples/jobs.query.json
 
 The CLI consumes UTF-8 lines until EOF, including a final line without a newline, and accepts CRLF. It retains groups and metric summaries, not all events. Memory scales with the largest line plus group keys and metric count, not total event count; a single enormous line or an oversized query file can still use substantial memory. It is a batch stream processor, not a continuously updating dashboard. Numeric computation uses IEEE-754 doubles, so floating-point rounding applies and integers above 2^53 may lose precision: use **strings for identifiers**, not large numeric IDs. It does not parse arbitrary plain-text/CSV logs or perform timezone normalization.
 
+Save input and query files as **UTF-8 without a BOM**. UTF-16 and legacy encoded
+bytes are rejected as input errors. A UTF-8 BOM is not stripped: it makes the
+first event invalid, or makes a query configuration fail to parse. Check the
+encoding selected by your Windows editor or shell before running the CLI.
+
 Query CLI exit codes: 0 success, 1 file/UTF-8 input error, 2 argument/query error, 4 invalid rows under `--fail-on-invalid`, 5 too few accepted events, 8 aggregation/line-count limit. Quality-gate failures (4/5) still print the completed report; read/limit failures do not. Invalid-row gating precedes minimum count. Group values are intentionally included in output; do not select private fields as group keys. Raw invalid lines and unrelated event fields are never echoed.
 
 ## Reuse from another MoonBit project
 
 Add `sundaysebasidian-byte/moon-loglens@0.2.0` to your module dependencies, then import the package in `moon.pkg`:
+
+```text
+// moon.mod in your independent module
+name = "loglens-acceptance/consumer"
+preferred_target = "native"
+import {
+  "sundaysebasidian-byte/moon-loglens@0.2.0",
+}
+```
 
 ```text
 import {
@@ -56,6 +110,23 @@ import {
 ```
 
 The [complete runnable embedding example](examples/reuse/main.mbt) uses `@lens.Query::parse`, `@lens.Accumulator::new`, `push_line` and `report`. It performs no filesystem access. It demonstrates how another tool can aggregate events received from its own file reader, service or queue without launching our CLI. Query plans are opaque; reports are independent snapshots, and modifying a returned array cannot corrupt later accumulation. Invalid data increments diagnostics; `QueryError::LimitExceeded` leaves the accumulator at its last complete state so a caller can decide how to recover.
+
+For a complete **external module** using the published 0.2.0 package, copy the
+[consumer fixture](tests/registry_consumer/main.mbt) outside this checkout:
+
+```sh
+consumer_dir="$(mktemp -d)"
+cp tests/registry_consumer/moon.mod tests/registry_consumer/moon.pkg tests/registry_consumer/main.mbt "$consumer_dir/"
+moon -C "$consumer_dir" update
+moon -C "$consumer_dir" check --target native
+moon -C "$consumer_dir" run .
+# Automated independent-module run with a complete JSON result assertion:
+python3 scripts/acceptance.py --consumer-only
+```
+
+Its two non-HTTP build events produce count 2, sum 30 and mean 15. Dependencies
+resolve from Mooncakes, with no local-path override. `examples/reuse` alone is
+a same-module embedding example and does not prove this downstream resolution.
 
 ### Related ecosystem tools
 
@@ -124,6 +195,24 @@ The HTTP analyzer (`cmd/main`) reads the whole file and keeps selected events in
 
 ## Development
 
+For a serial acceptance run with command exit codes, toolchain/platform details,
+source hashes, and an independently resolved Mooncakes 0.2.0 consumer:
+
+```sh
+python3 scripts/acceptance.py
+```
+
+This requires the existing MoonBit native toolchain, Python 3, Git and access to
+the official Mooncakes registry. It installs no tools. Evidence is written to a
+new directory next to the checkout; `--output /path/outside/checkout` selects a
+different new directory. Set `MOON_BIN` if `moon` is not on `PATH`. The consumer
+fixture is copied into a temporary module outside the repository, with an exact
+registry version and no local-path override. Its complete report is asserted;
+the three non-HTTP examples also have explicit aggregate assertions. Failures
+stop the run and remain recorded in `manifest.json`. See the
+[中文验收 walkthrough and requirement matrix](docs/acceptance.zh-CN.md) and
+[AI assistance, design decisions and licenses](docs/design-and-attribution.zh-CN.md).
+
 ```sh
 moon check --target native
 moon test --target native
@@ -132,6 +221,11 @@ moon info
 moon fmt
 python3 tests/cli_smoke.py
 python3 tests/query_cli.py
+python3 tests/platform_inputs.py
 ```
 
-The MoonBit suite includes the original 10 HTTP tests and 12 public query API tests. Two Python standard-library suites (8 tests each) exercise both real native CLIs, three non-HTTP schemas, stdin/file parity, encoding errors, 20,000 valid records, limits, exit codes and the embedding example. GitHub Actions runs check, build and all three suites on Linux. See [the version 0.2 changes](CHANGELOG.md) for scope and [the reusable API](query/pkg.generated.mbti) for exported types. The new query code is original; no third-party implementation was transplanted. Licensed under Apache-2.0; dependency APIs and MoonBit core provide JSON, containers and I/O.
+`platform_inputs.py` exercises real host CLI processes with Unicode/space paths,
+CRLF, encoding boundaries and exit codes. A macOS run is input-boundary evidence;
+it does not emulate Windows paths, a Windows kernel, or a Wine runtime.
+
+The MoonBit suite includes the original 10 HTTP tests and 12 public query API tests. Two Python standard-library CLI suites (8 tests each) exercise both real native CLIs, three non-HTTP schemas, stdin/file parity, encoding errors, 20,000 valid records, limits, exit codes and the embedding example. The additional host input-boundary suite has 5 tests. GitHub Actions invokes the acceptance script on Linux with the pinned compiler and preserves its evidence. Check the workflow run for the exact commit being evaluated; historical CI success applies only to its recorded SHA. See [the version 0.2 changes](CHANGELOG.md) for scope and [the reusable API](query/pkg.generated.mbti) for exported types. The new query code is original; no third-party implementation was transplanted. Licensed under Apache-2.0; dependency APIs and MoonBit core provide JSON, containers and I/O.
