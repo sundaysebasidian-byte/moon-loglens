@@ -13,12 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MOONBIT_VERSION: 0.10.14+7d59c7ec9
-      MOON_HOME: ${{ runner.temp }}/moonbit-0.10.14
     steps:
       - uses: actions/checkout@v4
       - name: Install the official MoonBit toolchain
+        env:
+          MOON_HOME: ${{ runner.temp }}/moonbit-0.10.14
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s "$MOONBIT_VERSION"
+          echo "MOON_HOME=$MOON_HOME" >> "$GITHUB_ENV"
           echo "$MOON_HOME/bin" >> "$GITHUB_PATH"
       - name: Show toolchain version
         run: |
